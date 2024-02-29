@@ -138,37 +138,6 @@ classdef visaENA < handle
             set(obj.p4, 'XData', obj.locsDiff, 'YData', obj.pksDiff);
             drawnow;
         end
-        
-        function labelPks(obj)
-            %label the peaks of trace, decided by the distance 
-            % delta between a peak and former peaks. For example, seperate
-            % two peaks A and B acquired by finding peaks in the former
-            % trace, and peak B moved left to B' in next acquired trace,
-            % and the distance between A and B is AB, B and B' is deltB,
-            % then deltB shold be the smallest of all the distance between
-            % B' and all other peaks. However, if B moved across A, deltB
-            % should be nearer to the average deltB over time comparaed to
-            % deltA, and thus deciding the peak is still B other than A. If
-            % a new peak C showed up, the distance of C to any other peaks
-            % shold be larger than a threshold, and thus a new peak is
-            % included.
-            for peak = obj.peaksTemp
-                delt = abs([obj.peaks.locs] - peak.locs);
-                [minDelt, I] = min(delt);
-                if minDelt > obj.minDeltPara
-                    peak.label = size(obj.peaks, 2) + 1;
-                    obj.peaks = [obj.peaks, peak];
-                elseif minDelt <= obj.minDeltPara
-                    if peakdissappered && disapperedpeakdistance<somethreshold
-                        %set the disappered peak disappered
-                        %
-
-                    end
-                    peak.label = obj.peaks(I).label;
-                    obj.peaks(I) = peak;
-                end
-            end
-        end
 
         function SaveData(obj)
             FN = datestr(datetime, 'yyyy-mm-dd-HH-MM-SS');
