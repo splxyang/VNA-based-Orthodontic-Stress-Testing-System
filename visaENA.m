@@ -1,3 +1,4 @@
+%here test
 classdef visaENA < handle
     properties
         ENA;                    %visa ENA object to communicate with
