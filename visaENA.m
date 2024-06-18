@@ -44,6 +44,9 @@ classdef visaENA < handle
         p2;                     %current peak plot
         p3;                     %difference trace plot
         p4;                     %difference peaks plot
+
+        dataToSave;             %data to save
+        savePath;
     end
 
 
@@ -52,6 +55,7 @@ classdef visaENA < handle
             obj.ENA = setupTest(visaAddress); 
             obj.getInitialValue();
             obj.updateData();
+            obj.initDataToSave();
             %obj.initShow();
         end
 
@@ -133,25 +137,55 @@ classdef visaENA < handle
 
         function updateTrace(obj)    %update the figure;
             obj.updateData;
-            set(obj.p1, 'XData', obj.Frequency, 'YData', obj.Data);
-            set(obj.p2, 'XData', obj.Locs ,'YData', obj.Pks);
-            set(obj.p3, 'XData', obj.Frequency, 'YData', obj.traceDifference);
-            set(obj.p4, 'XData', obj.locsDiff, 'YData', obj.pksDiff);
+            try
+                set(obj.p1, 'XData', obj.Frequency, 'YData', obj.Data);
+            catch
+                obj.p1 = plot(fig ,obj.Frequency, obj.Data);
+            end
+
+            try
+                set(obj.p2, 'XData', obj.Locs ,'YData', obj.Pks);
+            catch 
+                obj.p2 = plot(fig ,obj.iniLocs, obj.iniPks, 'o');
+            end
+
+            try
+                set(obj.p3, 'XData', obj.Frequency, 'YData', obj.traceDifference);
+            catch
+                obj.p3 = plot(fig, obj.Frequency, obj.traceDifference);
+            end
+
+            try
+                set(obj.p4, 'XData', obj.locsDiff, 'YData', obj.pksDiff);
+            catch
+                obj.p4 = plot(fig, obj.locsDiff, obj.pksDiff, 'o');
+            end
             drawnow;
         end
 
         function SaveData(obj)
             FN = datestr(datetime, 'yyyy-mm-dd-HH-MM-SS');
-            CurrentData = {};
-            CurrentData.Frequency = obj.Frequency;
-            CurrentData.Locs = obj.Locs;
-            CurrentData.Pks = obj.Pks;
-            CurrentData.Data = obj.Data;
-            CurrentData.traceDifference = obj.traceDifference;
-            CurrentData.locsDiff = obj.locsDiff;
-            CurrentData.pksDiff = obj.pksDiff;
+            save(strcat(obj.savePath, '\', FN), '-struct', 'obj.dataToSave');
+        end
 
-            save(strcat('Data\', FN), '-struct', 'CurrentData');
+        function initDataToSave(obj)
+            obj.dataToSave.Pks={};
+            obj.dataToSave.Locs={};
+            obj.dataToSave.locsDiff = {};
+            obj.dataToSave.pksDiff = {};
+            obj.dataToSave.Frequency = {};
+            obj.dataToSave.Data = {};
+            obj.dataToSave.traceDifference={};
+        end
+        
+        function LogData(obj)
+            obj.dataToSave.Pks{end+1}=obj.Pks;
+            obj.dataToSave.Locs{end+1}=obj.Pks;
+            obj.dataToSave.locsDiff{end+1}=obj.locsDiff;
+            obj.dataToSave.pksDiff{end+1}=obj.pksDiff;
+            obj.dataToSave.Frequency{end+1} = obj.Frequency;
+            obj.dataToSave.Data{end+1} = obj.Data;
+            obj.dataToSave.traceDifference{end+1}=obj.traceDifference;
         end
 
     end
