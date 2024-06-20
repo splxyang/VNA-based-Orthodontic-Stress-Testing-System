@@ -124,16 +124,18 @@ classdef visaENA < handle
             pks = -npks;
         end
 
-        function showTrace(obj, fig) %plot the current trace figure;
-            obj.p1 = plot(fig ,obj.Frequency, obj.Data);
-            hold(fig, 'on');
-            obj.p2 = plot(fig ,obj.iniLocs, obj.iniPks, 'o');
+        function showTrace(obj, axs) %plot the current trace figure;
+            cla(axs);
+            obj.p1 = plot(axs ,obj.Frequency, obj.Data);
+            hold(axs, 'on');
+            obj.p2 = plot(axs ,obj.iniLocs, obj.iniPks, 'o');
         end
 
-        function showDifference(obj,fig) %plot the differential trace;
-            obj.p3 = plot(fig, obj.Frequency, obj.traceDifference);
-            hold(fig, 'on');
-            obj.p4 = plot(fig, obj.locsDiff, obj.pksDiff, 'o');
+        function showDifference(obj,axs) %plot the differential trace;
+            cla(axs);
+            obj.p3 = plot(axs, obj.Frequency, obj.traceDifference);
+            hold(axs, 'on');
+            obj.p4 = plot(axs, obj.locsDiff, obj.pksDiff, 'o');
         end
 
         function initShow(obj)
