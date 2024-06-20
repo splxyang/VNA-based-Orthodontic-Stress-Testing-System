@@ -180,9 +180,12 @@ classdef visaENA < handle
         end
 
         function SaveData(obj)
-            FN = datestr(datetime, 'yyyy-mm-dd-HH-MM-SS');
             tmp = obj.dataToSave;
-            save(strcat(obj.savePath, '\', FN), '-struct', 'tmp');
+            if ~exist(fileparts(obj.savePath), 'dir')
+                % 如果路径不存在，创建该路径
+                mkdir(fileparts(obj.savePath));
+            end
+            save(obj.savePath, '-struct', 'tmp');
         end
 
         function initDataToSave(obj)
