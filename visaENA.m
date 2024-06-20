@@ -46,6 +46,9 @@ classdef visaENA < handle
         p4;                     %difference peaks plot
 
         dataToSave;             %data to save
+        dataLogTimer;
+        dataLogInterval;
+
         leftCursor;             %left cursor on the figure and the lower boundary to selsct the peaks
         rightCursor;            %right cursor on the figure and the upper boundary to selsct the peaks
         savePath;
@@ -58,6 +61,14 @@ classdef visaENA < handle
             obj.getInitialValue();
             obj.leftCursor = obj.Frequency(1);
             obj.rightCursor = obj.Frequency(end);
+            
+            obj.leftCursor = 200;
+            obj.rightCursor = 400;
+
+            obj.dataLogTimer = timer;
+            obj.dataLogInterval=0.1;
+            obj.dataLogSet();
+            
             obj.updateData();
             obj.initDataToSave();
             %obj.initShow();
@@ -197,5 +208,20 @@ classdef visaENA < handle
             obj.dataToSave.Data{end+1} = obj.Data;
             obj.dataToSave.traceDifference{end+1}=obj.traceDifference;
         end
+
+        function dataLogSet(obj)
+            obj.dataLogTimer.ExecutionMode = 'fixedRate';
+            obj.dataLogTimer.Period = obj.dataLogInterval;
+            obj.dataLogTimer.TimerFcn = @(~,~)obj.LogData();
+        end
+
+        function dataLogStart(obj)
+            start(obj.dataLogTimer);
+        end
+
+        function dataLogStop(obj)
+            stop(obj.dataLogTimer);
+        end
+
     end
 end
