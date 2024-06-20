@@ -46,6 +46,11 @@ classdef visaENA < handle
         p4;                     %difference peaks plot
 
         dataToSave;             %data to save
+        dataLogTimer;
+        dataLogInterval;
+
+        leftCursor;             %left cursor on the figure and the lower boundary to selsct the peaks
+        rightCursor;            %right cursor on the figure and the upper boundary to selsct the peaks
         savePath;
     end
 
@@ -54,6 +59,16 @@ classdef visaENA < handle
         function obj = visaENA(visaAddress) %initialization with ENA visa address
             obj.ENA = setupTest(visaAddress); 
             obj.getInitialValue();
+            obj.leftCursor = obj.Frequency(1);
+            obj.rightCursor = obj.Frequency(end);
+            
+            obj.leftCursor = 200;
+            obj.rightCursor = 400;
+
+            obj.dataLogTimer = timer;
+            obj.dataLogInterval=0.1;
+            obj.dataLogSet();
+            
             obj.updateData();
             obj.initDataToSave();
             %obj.initShow();
@@ -68,21 +83,21 @@ classdef visaENA < handle
 
         function getInitialValue(obj)  %get and setup the initial ENA spectrum
             [obj.iniFrequency, obj.iniData] = getTraceData(obj.ENA, obj.dataQueryType);
-            obj.Frequency = obj.iniFrequency;
+            obj.Frequency = obj.iniFrequency/1E6;
             obj.Data = obj.iniData;
             [obj.iniPks, obj.iniLocs] = obj.valleys(obj.iniData, obj.iniFrequency);
         end
 
         function getInitialValue1(obj)  %get and setup the initial ENA spectrum
             [obj.iniFrequency1, obj.iniData1] = getTraceData(obj.ENA, obj.dataQueryType);
-            obj.Frequency = obj.iniFrequency1;
+            obj.Frequency = obj.iniFrequency1/1E6;
             obj.Data = obj.iniData1;
             [obj.iniPks1, obj.iniLocs1] = obj.valleys(obj.iniData1, obj.iniFrequency1);
         end
 
         function getInitialValue2(obj)  %get and setup the initial ENA spectrum
             [obj.iniFrequency2, obj.iniData2] = getTraceData(obj.ENA, obj.dataQueryType);
-            obj.Frequency = obj.iniFrequency2;
+            obj.Frequency = obj.iniFrequency2/1E6;
             obj.Data = obj.iniData2;
             [obj.iniPks2, obj.iniLocs2] = obj.valleys(obj.iniData2, obj.iniFrequency2);
         end
@@ -90,7 +105,7 @@ classdef visaENA < handle
         function setInitialValue1(obj)
             obj.iniFrequency = obj.iniFrequency1;
             obj.iniData = obj.iniData1;
-            obj.Frequency = obj.iniFrequency;
+            obj.Frequency = obj.iniFrequency/1E6;
             obj.Data = obj.iniData;
             [obj.iniPks, obj.iniLocs] = obj.valleys(obj.iniData, obj.iniFrequency);
         end
@@ -98,7 +113,7 @@ classdef visaENA < handle
         function setInitialValue2(obj)
             obj.iniFrequency = obj.iniFrequency2;
             obj.iniData = obj.iniData2;
-            obj.Frequency = obj.iniFrequency;
+            obj.Frequency = obj.iniFrequency/1E6;
             obj.Data = obj.iniData;
             [obj.iniPks, obj.iniLocs] = obj.valleys(obj.iniData, obj.iniFrequency);
         end
@@ -129,7 +144,8 @@ classdef visaENA < handle
         end
 
         function updateData(obj)
-            [obj.Frequency, obj.Data] = getTraceData(obj.ENA, obj.dataQueryType);
+            [tmp, obj.Data] = getTraceData(obj.ENA, obj.dataQueryType);
+            obj.Frequency = tmp/1E6;
             obj.traceDifference = obj.Data - obj.iniData;
             [obj.Pks, obj.Locs] = obj.valleys(obj.Data, obj.Frequency);
             [obj.pksDiff, obj.locsDiff] = obj.valleys(obj.traceDifference, obj.Frequency);
@@ -164,8 +180,12 @@ classdef visaENA < handle
         end
 
         function SaveData(obj)
-            FN = datestr(datetime, 'yyyy-mm-dd-HH-MM-SS');
-            save(strcat(obj.savePath, '\', FN), '-struct', 'obj.dataToSave');
+            tmp = obj.dataToSave;
+            if ~exist(fileparts(obj.savePath), 'dir')
+                % 如果路径不存在，创建该路径
+                mkdir(fileparts(obj.savePath));
+            end
+            save(obj.savePath, '-struct', 'tmp');
         end
 
         function initDataToSave(obj)
@@ -179,15 +199,32 @@ classdef visaENA < handle
         end
         
         function LogData(obj)
-            obj.dataToSave.Pks{end+1}=obj.Pks;
-            obj.dataToSave.Locs{end+1}=obj.Pks;
-            obj.dataToSave.locsDiff{end+1}=obj.locsDiff;
-            obj.dataToSave.pksDiff{end+1}=obj.pksDiff;
+            indicesLocs = obj.Locs>=obj.leftCursor & obj.Locs<=obj.rightCursor;
+            obj.dataToSave.Pks{end+1}=obj.Pks(indicesLocs);
+            obj.dataToSave.Locs{end+1}=obj.Locs(indicesLocs);
+
+            indicesDiff = obj.locsDiff>=obj.leftCursor & obj.locsDiff <= obj.rightCursor;
+            obj.dataToSave.locsDiff{end+1}=obj.locsDiff(indicesDiff);
+            obj.dataToSave.pksDiff{end+1}=obj.pksDiff(indicesDiff);
+
             obj.dataToSave.Frequency{end+1} = obj.Frequency;
             obj.dataToSave.Data{end+1} = obj.Data;
             obj.dataToSave.traceDifference{end+1}=obj.traceDifference;
         end
 
-    end
+        function dataLogSet(obj)
+            obj.dataLogTimer.ExecutionMode = 'fixedRate';
+            obj.dataLogTimer.Period = obj.dataLogInterval;
+            obj.dataLogTimer.TimerFcn = @(~,~)obj.LogData();
+        end
 
+        function dataLogStart(obj)
+            start(obj.dataLogTimer);
+        end
+
+        function dataLogStop(obj)
+            stop(obj.dataLogTimer);
+        end
+
+    end
 end
