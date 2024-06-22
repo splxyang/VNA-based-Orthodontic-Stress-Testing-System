@@ -46,8 +46,14 @@ classdef visaENA < handle
         p4;                     %difference peaks plot
 
         dataToSave;             %data to save
-        dataLogTimer;
-        dataLogInterval;
+        dataLogTimer;           %data log timer
+        dataLogInterval;        %data log interval
+
+        fitGaussNum;            %number of gaussian peaks to fit the curve, 4 by default
+        fitGaussParameter;      %gaussian fit output parameters, arranged by center, width, center, width...
+        fitGaussFlag;           %flag of the gaussian fminsearch fit, 1 means succeed
+        fitGaussCurve;          %lines of the fitted gaussian peaks, the number of the lines is fitGaussNum
+        c;
 
         leftCursor;             %left cursor on the figure and the lower boundary to selsct the peaks
         rightCursor;            %right cursor on the figure and the upper boundary to selsct the peaks
@@ -61,9 +67,8 @@ classdef visaENA < handle
             obj.getInitialValue();
             obj.leftCursor = obj.Frequency(1);
             obj.rightCursor = obj.Frequency(end);
-            
-            obj.leftCursor = 200;
-            obj.rightCursor = 400;
+           
+            obj.fitGaussNum = 4;
 
             obj.dataLogTimer = timer;
             obj.dataLogInterval=0.1;
@@ -181,6 +186,66 @@ classdef visaENA < handle
             drawnow;
         end
 
+        function fitGaussFun(obj)
+            centerGuess = sort((obj.rightCursor-obj.leftCursor)*rand(obj.fitGaussNum, 1)+obj.leftCursor);
+            widthGuess = (obj.rightCursor-obj.leftCursor)/obj.fitGaussNum * rand(obj.fitGaussNum, 1);
+            initialGuesses = [centerGuess, widthGuess];
+            startingGuesses = reshape(initialGuesses', 1, []);
+            
+            tFit = reshape(obj.Frequency, 1, []);
+            y = reshape(obj.Data);
+            
+            % Perform an iterative fit using the FMINSEARCH function to optimize the height, width and center of the multiple Gaussians.
+            options = optimset;  % Determines how close the model must fit the data
+            options.TolFun = 1e-4;
+            options.TolX = 1e-4;
+            options.MaxFunEvals = 10^12;
+            options.MaxIter = 100000;
+
+            [obj.fitGaussParameter, fval, obj.fitGaussFlag, output] = fminsearch(@(lambda)(obj.fitgauss(lambda, tFit, y)), startingGuesses, options);
+
+        end
+
+        function plotFitGauss(obj, axs)
+            cla(axs);
+            centers = obj.fitGaussParameter(1:2:end);
+            widths = obj.fitGaussParameter(2:2:end);
+            
+            for i = 1:obj.fitGaussNum
+                thisEstimatedCurve = obj.c(k) .* gaussian(obj.Frequency, centers(i), widths(i));
+                plot(axs, obj.Frequency, thisEstimatedCurve, '-', 'LineWidth', 2);
+                hold(axs, 'on');
+            end
+            drawnow;
+        end
+
+        function theError = fitgauss(lambda, t, y, obj)
+        % Fitting function for multiple overlapping Gaussians
+        % Author: T. C. O'Haver, 2006
+	        A = zeros(length(t), round(length(lambda) / 2));
+	        for j = 1 : length(lambda) / 2
+		        A(:,j) = gaussian(t, lambda(2 * j - 1), lambda(2 * j))';
+	        end
+	        
+	        obj.c = A \ y';
+	        z = A * obj.c;
+	        theError = norm(z - y');
+	        
+	        % Penalty so that heights don't become negative.
+	        if sum(obj.c < 0) > 0
+		        theError = theError + 1000000;
+            end
+        end
+
+        function g = gaussian(x, peakPosition, width)
+        %  gaussian(x,pos,wid) = gaussian peak centered on pos, half-width=wid
+        %  x may be scalar, vector, or matrix, pos and wid both scalar
+        %  T. C. O'Haver, 1988
+        % Examples: gaussian([0 1 2],1,2) gives result [0.5000    1.0000    0.5000]
+        % plot(gaussian([1:100],50,20)) displays gaussian band centered at 50 with width 20.
+        g = exp(-((x - peakPosition) ./ (0.60056120439323 .* width)) .^ 2);
+        end % of gaussian()
+
         function SaveData(obj)
             tmp = obj.dataToSave;
             if ~exist(fileparts(obj.savePath), 'dir')
@@ -209,9 +274,9 @@ classdef visaENA < handle
             obj.dataToSave.locsDiff{end+1}=obj.locsDiff(indicesDiff);
             obj.dataToSave.pksDiff{end+1}=obj.pksDiff(indicesDiff);
 
-            obj.dataToSave.Frequency{end+1} = obj.Frequency;
-            obj.dataToSave.Data{end+1} = obj.Data;
-            obj.dataToSave.traceDifference{end+1}=obj.traceDifference;
+            % obj.dataToSave.Frequency{end+1} = obj.Frequency;
+            % obj.dataToSave.Data{end+1} = obj.Data;
+            % obj.dataToSave.traceDifference{end+1}=obj.traceDifference;
         end
 
         function dataLogSet(obj)
