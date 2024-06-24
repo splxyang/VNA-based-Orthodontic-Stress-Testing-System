@@ -55,6 +55,7 @@ classdef visaENA < handle
         fitGaussCurve;          %lines of the fitted gaussian peaks, the number of the lines is fitGaussNum
         c;
 
+        useCursor;              %flag of using the cursor to select peaks
         leftCursor;             %left cursor on the figure and the lower boundary to selsct the peaks
         rightCursor;            %right cursor on the figure and the upper boundary to selsct the peaks
         savePath;
@@ -69,6 +70,7 @@ classdef visaENA < handle
             obj.rightCursor = obj.Frequency(end);
            
             obj.fitGaussNum = 4;
+            obj.useCursor = false;
 
             obj.dataLogTimer = timer;
             obj.dataLogInterval=0.1;
@@ -88,21 +90,24 @@ classdef visaENA < handle
 
         function getInitialValue(obj)  %get and setup the initial ENA spectrum
             [obj.iniFrequency, obj.iniData] = getTraceData(obj.ENA, obj.dataQueryType);
-            obj.Frequency = obj.iniFrequency/1E6;
+            obj.iniFrequency = obj.iniFrequency/1E6;
+            obj.Frequency = obj.iniFrequency;
             obj.Data = obj.iniData;
             [obj.iniPks, obj.iniLocs] = obj.valleys(obj.iniData, obj.iniFrequency);
         end
 
         function getInitialValue1(obj)  %get and setup the initial ENA spectrum
             [obj.iniFrequency1, obj.iniData1] = getTraceData(obj.ENA, obj.dataQueryType);
-            obj.Frequency = obj.iniFrequency1/1E6;
+            obj.iniFrequency1 = obj.iniFrequency1/1E6;
+            obj.Frequency = obj.iniFrequency1;
             obj.Data = obj.iniData1;
             [obj.iniPks1, obj.iniLocs1] = obj.valleys(obj.iniData1, obj.iniFrequency1);
         end
 
         function getInitialValue2(obj)  %get and setup the initial ENA spectrum
             [obj.iniFrequency2, obj.iniData2] = getTraceData(obj.ENA, obj.dataQueryType);
-            obj.Frequency = obj.iniFrequency2/1E6;
+            obj.iniFrequency2 = obj.iniFrequency2/1E6;
+            obj.Frequency = obj.iniFrequency2;
             obj.Data = obj.iniData2;
             [obj.iniPks2, obj.iniLocs2] = obj.valleys(obj.iniData2, obj.iniFrequency2);
         end
@@ -110,7 +115,7 @@ classdef visaENA < handle
         function setInitialValue1(obj)
             obj.iniFrequency = obj.iniFrequency1;
             obj.iniData = obj.iniData1;
-            obj.Frequency = obj.iniFrequency/1E6;
+            obj.Frequency = obj.iniFrequency;
             obj.Data = obj.iniData;
             [obj.iniPks, obj.iniLocs] = obj.valleys(obj.iniData, obj.iniFrequency);
         end
@@ -118,7 +123,7 @@ classdef visaENA < handle
         function setInitialValue2(obj)
             obj.iniFrequency = obj.iniFrequency2;
             obj.iniData = obj.iniData2;
-            obj.Frequency = obj.iniFrequency/1E6;
+            obj.Frequency = obj.iniFrequency;
             obj.Data = obj.iniData;
             [obj.iniPks, obj.iniLocs] = obj.valleys(obj.iniData, obj.iniFrequency);
         end
@@ -193,7 +198,7 @@ classdef visaENA < handle
             startingGuesses = reshape(initialGuesses', 1, []);
             
             tFit = reshape(obj.Frequency, 1, []);
-            y = reshape(obj.Data);
+            y = reshape(obj.Data, 1, []);
             
             % Perform an iterative fit using the FMINSEARCH function to optimize the height, width and center of the multiple Gaussians.
             options = optimset;  % Determines how close the model must fit the data
@@ -266,13 +271,18 @@ classdef visaENA < handle
         end
         
         function LogData(obj)
-            indicesLocs = obj.Locs>=obj.leftCursor & obj.Locs<=obj.rightCursor;
-            obj.dataToSave.Pks{end+1}=obj.Pks(indicesLocs);
-            obj.dataToSave.Locs{end+1}=obj.Locs(indicesLocs);
-
-            indicesDiff = obj.locsDiff>=obj.leftCursor & obj.locsDiff <= obj.rightCursor;
-            obj.dataToSave.locsDiff{end+1}=obj.locsDiff(indicesDiff);
-            obj.dataToSave.pksDiff{end+1}=obj.pksDiff(indicesDiff);
+            if obj.useCursor
+                indicesLocs = obj.Locs>=obj.leftCursor & obj.Locs<=obj.rightCursor;
+                obj.dataToSave.Pks{end+1}=obj.Pks(indicesLocs);
+                obj.dataToSave.Locs{end+1}=obj.Locs(indicesLocs);
+                indicesDiff = obj.locsDiff>=obj.leftCursor & obj.locsDiff <= obj.rightCursor;
+                obj.dataToSave.locsDiff{end+1}=obj.locsDiff(indicesDiff);
+                obj.dataToSave.pksDiff{end+1}=obj.pksDiff(indicesDiff);
+            else
+                obj.dataToSave.Pks{end+1}=obj.Pks;
+                obj.dataToSave.Locs{end+1}=obj.Locs;
+                obj.dataToSave.locsDiff{end+1}=obj.locsDiff;
+                obj.dataToSave.pksDiff{end+1}=obj.pksDiff;
 
             % obj.dataToSave.Frequency{end+1} = obj.Frequency;
             % obj.dataToSave.Data{end+1} = obj.Data;
