@@ -289,6 +289,7 @@ classdef visaENA < handle
                 obj.dataToSave.pksDiff{end+1}=obj.pksDiff;
 
             end
+            obj.dataToSave.timeInterval = obj.dataLogInterval;
 
             % obj.dataToSave.Frequency{end+1} = obj.Frequency;
             % obj.dataToSave.Data{end+1} = obj.Data;
