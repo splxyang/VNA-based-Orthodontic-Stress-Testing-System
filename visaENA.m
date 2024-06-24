@@ -207,7 +207,7 @@ classdef visaENA < handle
             options.MaxFunEvals = 10^12;
             options.MaxIter = 100000;
 
-            [obj.fitGaussParameter, fval, obj.fitGaussFlag, output] = fminsearch(@(lambda)(obj.fitgauss(lambda, tFit, y)), startingGuesses, options);
+            [obj.fitGaussParameter, fval, obj.fitGaussFlag, output] = fminsearch(@(lambda)(fitgauss(lambda, tFit, y, obj)), startingGuesses, options);
 
         end
 
@@ -242,15 +242,6 @@ classdef visaENA < handle
             end
         end
 
-        function g = gaussian(x, peakPosition, width)
-        %  gaussian(x,pos,wid) = gaussian peak centered on pos, half-width=wid
-        %  x may be scalar, vector, or matrix, pos and wid both scalar
-        %  T. C. O'Haver, 1988
-        % Examples: gaussian([0 1 2],1,2) gives result [0.5000    1.0000    0.5000]
-        % plot(gaussian([1:100],50,20)) displays gaussian band centered at 50 with width 20.
-        g = exp(-((x - peakPosition) ./ (0.60056120439323 .* width)) .^ 2);
-        end % of gaussian()
-
         function SaveData(obj)
             tmp = obj.dataToSave;
             if ~exist(fileparts(obj.savePath), 'dir')
@@ -284,6 +275,8 @@ classdef visaENA < handle
                 obj.dataToSave.locsDiff{end+1}=obj.locsDiff;
                 obj.dataToSave.pksDiff{end+1}=obj.pksDiff;
 
+            end
+
             % obj.dataToSave.Frequency{end+1} = obj.Frequency;
             % obj.dataToSave.Data{end+1} = obj.Data;
             % obj.dataToSave.traceDifference{end+1}=obj.traceDifference;
@@ -305,3 +298,12 @@ classdef visaENA < handle
 
     end
 end
+
+function g = gaussian(x, peakPosition, width)
+%  gaussian(x,pos,wid) = gaussian peak centered on pos, half-width=wid
+%  x may be scalar, vector, or matrix, pos and wid both scalar
+%  T. C. O'Haver, 1988
+% Examples: gaussian([0 1 2],1,2) gives result [0.5000    1.0000    0.5000]
+% plot(gaussian([1:100],50,20)) displays gaussian band centered at 50 with width 20.
+g = exp(-((x - peakPosition) ./ (0.60056120439323 .* width)) .^ 2);
+end % of gaussian()
