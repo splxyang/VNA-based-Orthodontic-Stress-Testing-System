@@ -53,7 +53,10 @@ classdef visaENA < handle
         fitGaussParameter;      %gaussian fit output parameters, arranged by center, width, center, width...
         fitGaussFlag;           %flag of the gaussian fminsearch fit, 1 means succeed
         fitGaussCurve;          %lines of the fitted gaussian peaks, the number of the lines is fitGaussNum
+        fitGaussFrequency;      %frequency spectrum of Gauss fit analysis
+        fitGaussData;           %data of Gauss fit
         c;
+
 
         useCursor;              %flag of using the cursor to select peaks
         leftCursor;             %left cursor on the figure and the lower boundary to selsct the peaks
@@ -196,9 +199,14 @@ classdef visaENA < handle
             widthGuess = (obj.rightCursor-obj.leftCursor)/obj.fitGaussNum * rand(obj.fitGaussNum, 1);
             initialGuesses = [centerGuess, widthGuess];
             startingGuesses = reshape(initialGuesses', 1, []);
+            [~,leftIdx] = min(abs(obj.Frequency-obj.leftCursor));
+            [~,rightIdx] = min(abs(obj.Frequency-obj.rightCursor));
             
-            tFit = reshape(obj.Frequency, 1, []);
-            y = reshape(obj.Data, 1, []);
+            obj.fitGaussFrequency = obj.Frequency(leftIdx:rightIdx);
+            obj.fitGaussData = -obj.Data(leftIdx:rightIdx);
+
+            tFit = reshape(obj.fitGaussFrequency, 1, []);
+            y = reshape(obj.fitGaussData, 1, []);
             
             % Perform an iterative fit using the FMINSEARCH function to optimize the height, width and center of the multiple Gaussians.
             options = optimset;  % Determines how close the model must fit the data
@@ -206,7 +214,7 @@ classdef visaENA < handle
             options.TolX = 1e-4;
             options.MaxFunEvals = 10^12;
             options.MaxIter = 100000;
-
+            warning off;
             [obj.fitGaussParameter, fval, obj.fitGaussFlag, output] = fminsearch(@(lambda)(fitgauss(lambda, tFit, y, obj)), startingGuesses, options);
 
         end
@@ -215,12 +223,17 @@ classdef visaENA < handle
             cla(axs);
             centers = obj.fitGaussParameter(1:2:end);
             widths = obj.fitGaussParameter(2:2:end);
-            
+            legendStrings = cell(obj.fitGaussNum, 1);
             for i = 1:obj.fitGaussNum
-                thisEstimatedCurve = obj.c(k) .* gaussian(obj.Frequency, centers(i), widths(i));
+                thisEstimatedCurve = - obj.c(i) .* gaussian(obj.fitGaussFrequency, centers(i), widths(i));
                 plot(axs, obj.Frequency, thisEstimatedCurve, '-', 'LineWidth', 2);
                 hold(axs, 'on');
+                legendStrings{i} = sprintf('Gaussian Fit Curve %d', i);
             end
+            plot(axs, obj.fitGaussFrequency, obj.fitGaussData);
+            hold(axs, 'on');
+            legendStrings{end+1} = sprintf('Raw Spectrum within %f to %f MHz', obj.leftCursor, obj.rightCursor);
+            legend(legendStrings);
             drawnow;
         end
 
