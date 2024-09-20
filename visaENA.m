@@ -50,6 +50,7 @@ classdef visaENA < handle
         dataToSave;             %data to save
         dataLogTimer;           %data log timer
         dataLogInterval;        %data log interval
+        dataLoaded;             %loaded data to show
 
         fitGaussNum;            %number of gaussian peaks to fit the curve, 4 by default
         fitGaussParameter;      %gaussian fit output parameters, arranged by center, width, center, width...
@@ -68,24 +69,8 @@ classdef visaENA < handle
 
 
     methods
-        function obj = visaENA(visaAddress) %initialization with ENA visa address
-            obj.ENA = setupTest(visaAddress); 
-            obj.getInitialValue();
-            obj.leftCursor = obj.Frequency(1);
-            obj.rightCursor = obj.Frequency(end);
-           
-            obj.fitGaussNum = 4;
-            obj.useCursor = false;
+        function obj = visaENA() %initialization with ENA visa address
 
-            obj.connectionTimer = timer;
-            obj.dataLogTimer = timer;
-            obj.dataLogInterval=0.1;
-            obj.connectionTimerSet();
-            obj.dataLogSet();
-            
-            obj.updateData();
-            obj.initDataToSave();
-            %obj.initShow();
         end
 
         function delete(obj)
@@ -93,6 +78,23 @@ classdef visaENA < handle
                 closeTest(obj.ENA);
                 fprintf("ENA deleted");
             end
+        end
+
+        function initENA(obj, visaAddress)
+            obj.ENA = setupTest(visaAddress); 
+            obj.getInitialValue();
+            obj.leftCursor = obj.Frequency(1);
+            obj.rightCursor = obj.Frequency(end);
+            obj.useCursor = false;
+
+            obj.connectionTimer = timer;
+            obj.dataLogTimer = timer;
+            obj.dataLogInterval=0.1;
+            obj.connectionTimerSet();
+            obj.dataLogSet();
+
+            %obj.updateData();
+            obj.initDataToSave();
         end
 
         function getInitialValue(obj)  %get and setup the initial ENA spectrum
@@ -155,8 +157,34 @@ classdef visaENA < handle
             obj.p4 = plot(axs, obj.locsDiff, obj.pksDiff, 'o');
         end
 
-        function slideChange(obj, changingValue)
+        function showData(obj, axs1, axs2)
+            cla(axs1);
+            cla(axs2);
+            try
+                obj.p1 = plot(axs1, obj.dataLoaded.Frequency{1}, obj.dataLoaded.Data{1});
+                hold(axs1, 'on');
+                obj.p2 = plot(axs1, obj.dataLoaded.Locs{1}, obj.dataLoaded.Pks{1},'o');
+                
+                obj.p3 = plot(axs2, obj.dataLoaded.Frequency{1}, obj.dataLoaded.traceDifference{1});
+                hold(axs2, 'on');
+                obj.p4 = plot(axs2, obj.dataLoaded.locsDiff{1}, obj.dataLoaded.pksDiff{1}, 'o');
+            catch
+                disp('数据显示失败');
+            end
+        end
 
+        function slideChange(obj, changingValue)
+            %todo
+            totalLength = length(obj.dataLoaded.Frequency);
+            frameIdx = ceil(totalLength*changingValue/100);
+            if frameIdx == 0
+                frameIdx = 1;
+            end
+            set(obj.p1, 'XData', obj.dataLoaded.Frequency{frameIdx}, 'YData', obj.dataLoaded.Data{frameIdx});
+            set(obj.p2, 'XData', obj.dataLoaded.Locs{frameIdx} ,'YData', obj.dataLoaded.Pks{frameIdx});
+            set(obj.p3, 'XData', obj.dataLoaded.Frequency{frameIdx}, 'YData', obj.dataLoaded.traceDifference{frameIdx});
+            set(obj.p4, 'XData', obj.dataLoaded.locsDiff{frameIdx}, 'YData', obj.dataLoaded.pksDiff{frameIdx});
+            drawnow;
         end
 
         function initShow(obj)
@@ -211,17 +239,21 @@ classdef visaENA < handle
         end
 
         function startConnection(obj)
-            start(obj.connectionTimer);
+            if ~isempty(timerfind(obj.connectionTimer))
+                start(obj.connectionTimer);
+            end
         end
 
         function stopConnection(obj)
-            stop(obj.connectionTimer);
+            if ~isempty(timerfind(obj.connectionTimer))
+                stop(obj.connectionTimer);
+            end
         end
 
         function connectionTimerSet(obj)
             obj.connectionTimer.ExecutionMode = 'fixedRate';
             obj.connectionTimer.Period = obj.dataLogInterval;
-            obj.connectionTimer.TimerFcn = @(~,~)obj.LogData();
+            obj.connectionTimer.TimerFcn = @(~,~)obj.updateTrace();
         end
                       
 
