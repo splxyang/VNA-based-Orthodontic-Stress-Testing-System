@@ -40,12 +40,14 @@ classdef visaENA < handle
         peakTrace;              %follow the peak variance trace while measuring
         diffPeakTrace;          %follow the peak variance of differential spectrum while measuring
 
-        connectionTimer;        %connection timer to update the trace
+        visualizationTimer;        %connection timer to update the trace
         
         p1;                     %current spectrum plot
         p2;                     %current peak plot
         p3;                     %difference trace plot
         p4;                     %difference peaks plot
+        axs1;                   %axes for ploting the temporal trace
+        axs2;                   %axes for ploting the differential trace
 
         dataToSave;             %data to save
         dataLogTimer;           %data log timer
@@ -70,7 +72,8 @@ classdef visaENA < handle
 
     methods
         function obj = visaENA() %initialization with ENA visa address
-
+            obj.visualizationTimer = timer;
+            obj.dataLogTimer = timer;
         end
 
         function delete(obj)
@@ -87,14 +90,18 @@ classdef visaENA < handle
             obj.rightCursor = obj.Frequency(end);
             obj.useCursor = false;
 
-            obj.connectionTimer = timer;
-            obj.dataLogTimer = timer;
             obj.dataLogInterval=0.1;
-            obj.connectionTimerSet();
+            obj.visualizationTimerSet();
             obj.dataLogSet();
 
-            %obj.updateData();
+            obj.updateData();
             obj.initDataToSave();
+        end
+
+        function deleteENA(obj)
+            if ~isempty(obj.ENA)
+                closeTest(obj.ENA);
+            end
         end
 
         function getInitialValue(obj)  %get and setup the initial ENA spectrum
@@ -143,55 +150,36 @@ classdef visaENA < handle
             pks = -npks;
         end
 
-        function showTrace(obj, axs) %plot the current trace figure;
-            cla(axs);
-            obj.p1 = plot(axs ,obj.Frequency, obj.Data);
-            hold(axs, 'on');
-            obj.p2 = plot(axs ,obj.iniLocs, obj.iniPks, 'o');
-        end
-
-        function showDifference(obj, axs) %plot the differential trace;
-            cla(axs);
-            obj.p3 = plot(axs, obj.Frequency, obj.traceDifference);
-            hold(axs, 'on');
-            obj.p4 = plot(axs, obj.locsDiff, obj.pksDiff, 'o');
-        end
-
-        function showData(obj, axs1, axs2)
-            cla(axs1);
-            cla(axs2);
-            try
-                obj.p1 = plot(axs1, obj.dataLoaded.Frequency{1}, obj.dataLoaded.Data{1});
-                hold(axs1, 'on');
-                obj.p2 = plot(axs1, obj.dataLoaded.Locs{1}, obj.dataLoaded.Pks{1},'o');
-                
-                obj.p3 = plot(axs2, obj.dataLoaded.Frequency{1}, obj.dataLoaded.traceDifference{1});
-                hold(axs2, 'on');
-                obj.p4 = plot(axs2, obj.dataLoaded.locsDiff{1}, obj.dataLoaded.pksDiff{1}, 'o');
-            catch
-                disp('数据显示失败');
+        function validation = validateDataLoaded(obj)
+            if isempty(obj.dataLoaded)||isempty(obj.dataLoaded.Frequency)||isempty(obj.dataLoaded.Data)...
+                    ||isempty(obj.dataLoaded.Locs)||isempty(obj.dataLoaded.Pks)||isempty(obj.dataLoaded.traceDifference)...
+                    ||isempty(obj.dataLoaded.locsDiff)||isempty(obj.dataLoaded.pksDiff)
+                validation = false;
+            else
+                validation = true;
             end
         end
 
         function slideChange(obj, changingValue)
-            %todo
             totalLength = length(obj.dataLoaded.Frequency);
             frameIdx = ceil(totalLength*changingValue/100);
             if frameIdx == 0
                 frameIdx = 1;
             end
-            set(obj.p1, 'XData', obj.dataLoaded.Frequency{frameIdx}, 'YData', obj.dataLoaded.Data{frameIdx});
-            set(obj.p2, 'XData', obj.dataLoaded.Locs{frameIdx} ,'YData', obj.dataLoaded.Pks{frameIdx});
-            set(obj.p3, 'XData', obj.dataLoaded.Frequency{frameIdx}, 'YData', obj.dataLoaded.traceDifference{frameIdx});
-            set(obj.p4, 'XData', obj.dataLoaded.locsDiff{frameIdx}, 'YData', obj.dataLoaded.pksDiff{frameIdx});
-            drawnow;
-        end
+            try
+                obj.Frequency = obj.dataLoaded.Frequency{frameIdx};
+                obj.Data = obj.dataLoaded.Data{frameIdx};
+                obj.Locs = obj.dataLoaded.Locs{frameIdx};
+                obj.Pks = obj.dataLoaded.Pks{frameIdx};
+                obj.traceDifference = obj.dataLoaded.traceDifference{frameIdx};
+                obj.locsDiff = obj.dataLoaded.locsDiff{frameIdx};
+                obj.pksDiff = obj.dataLoaded.pksDiff{frameIdx};
+                
+                obj.updateTrace(obj.Frequency, obj.Data, obj.Locs, obj.Pks, obj.traceDifference, obj.locsDiff, obj.pksDiff);
 
-        function initShow(obj)
-            fig1 = figure;
-            obj.showTrace(fig1);
-            fig2 = figure;
-            obj.showDifference(fig2);
+            catch
+                disp("Data visualization error");
+            end
         end
 
         function updateData(obj)
@@ -202,58 +190,51 @@ classdef visaENA < handle
             [obj.pksDiff, obj.locsDiff] = obj.valleys(obj.traceDifference, obj.Frequency);
         end
 
-        function updateTrace(obj)    %update the figure;
-            obj.updateData;
-            try
-                set(obj.p1, 'XData', obj.Frequency, 'YData', obj.Data);
-            catch
-                obj.p1 = plot(fig ,obj.Frequency, obj.Data);
-            end
+        function setupVisualization(obj, axs1, axs2)
+            cla(axs1);
+            cla(axs2);
+            obj.p1 = plot(axs1, (1:100), 0);
+            hold(axs1, 'on');
+            obj.p2 = plot(axs1 ,50, 0, 'o');
+            
+            obj.p3 = plot(axs2, (1:100), 0);
+            hold(axs2, 'on');
+            obj.p4 = plot(axs2, 50, 0, 'o');
 
-            try
-                set(obj.p2, 'XData', obj.Locs ,'YData', obj.Pks);
-            catch 
-                obj.p2 = plot(fig ,obj.iniLocs, obj.iniPks, 'o');
-            end
+        end
 
-            try
-                set(obj.p3, 'XData', obj.Frequency, 'YData', obj.traceDifference);
-            catch
-                obj.p3 = plot(fig, obj.Frequency, obj.traceDifference);
-            end
+        function updateTrace(obj, frequency, data, locs, pks, tracediff, locsdiff, pksdiff)    %update the figure;
 
-            try
-                set(obj.p4, 'XData', obj.locsDiff, 'YData', obj.pksDiff);
-            catch
-                obj.p4 = plot(fig, obj.locsDiff, obj.pksDiff, 'o');
-            end
+            set(obj.p1, 'XData', frequency, 'YData', data);
+            set(obj.p2, 'XData', locs ,'YData', pks);
+            set(obj.p3, 'XData', frequency, 'YData', tracediff);
+            set(obj.p4, 'XData', locsdiff, 'YData', pksdiff);
+
             drawnow;
         end
 
-        function connection(obj)
-            try
-                obj.updateTrace;
-            catch
-                warning('Get Trace Error');
+        function updateMeasurement(obj)
+            obj.updateData;
+            obj.updateTrace(obj.Frequency, obj.Data, obj.Locs, obj.Pks, obj.traceDifference, obj.locsDiff, obj.pksDiff);
+
+        end
+
+        function startVisualization(obj)
+            if ~isempty(timerfind(obj.visualizationTimer))
+                start(obj.visualizationTimer);
             end
         end
 
-        function startConnection(obj)
-            if ~isempty(timerfind(obj.connectionTimer))
-                start(obj.connectionTimer);
+        function stopVisualization(obj)
+            if ~isempty(timerfind(obj.visualizationTimer))
+                stop(obj.visualizationTimer);
             end
         end
 
-        function stopConnection(obj)
-            if ~isempty(timerfind(obj.connectionTimer))
-                stop(obj.connectionTimer);
-            end
-        end
-
-        function connectionTimerSet(obj)
-            obj.connectionTimer.ExecutionMode = 'fixedRate';
-            obj.connectionTimer.Period = obj.dataLogInterval;
-            obj.connectionTimer.TimerFcn = @(~,~)obj.updateTrace();
+        function visualizationTimerSet(obj)
+            obj.visualizationTimer.ExecutionMode = 'fixedRate';
+            obj.visualizationTimer.Period = obj.dataLogInterval;
+            obj.visualizationTimer.TimerFcn = @(~,~)obj.updateMeasurement();
         end
                       
 
@@ -278,7 +259,7 @@ classdef visaENA < handle
             options.MaxFunEvals = 10^12;
             options.MaxIter = 100000;
             warning off;
-            [obj.fitGaussParameter, fval, obj.fitGaussFlag, output] = fminsearch(@(lambda)(fitgauss(lambda, tFit, y, obj)), startingGuesses, options);
+            [obj.fitGaussParameter, ~, obj.fitGaussFlag, ~] = fminsearch(@(lambda)(fitgauss(lambda, tFit, y, obj)), startingGuesses, options);
 
         end
 
@@ -313,7 +294,7 @@ classdef visaENA < handle
 	        theError = norm(z - y');
 	        
 	        % Penalty so that heights don't become negative.
-	        if sum(obj.c < 0) > 0
+            if sum(obj.c < 0) > 0
 		        theError = theError + 1000000;
             end
         end
